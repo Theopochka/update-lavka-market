@@ -1,5 +1,5 @@
 script_name('Lavka Market')
-script_version('2.0')
+script_version('2.5')
 script_author('Theopka')
 
 
