@@ -2,38 +2,6 @@ script_name('Lavka Market')
 script_version('2.0')
 script_author('Theopka')
 
-function update()
-    local fpath = os.getenv('TEMP') .. '\\testing_version.json' -- куда будет качаться наш файлик для сравнения версии
-    downloadUrlToFile('https://raw.githubusercontent.com/Theopochka/update-lavka-market/main/version.json', fpath, function(id, status, p1, p2) -- ссылку на ваш гитхаб где есть строчки которые я ввёл в теме или любой другой сайт
-      if status == dlstatus.STATUS_ENDDOWNLOADDATA then
-      local f = io.open(fpath, 'r') -- открывает файл
-      if f then
-        local info = decodeJson(f:read('*a')) -- читает
-        updatelink = info.updateurl
-        if info and info.latest then
-          version = tonumber(info.latest) -- переводит версию в число
-          if version > tonumber(thisScript().version) then -- если версия больше чем версия установленная то...
-            lua_thread.create(goupdate) -- апдейт
-          else -- если меньше, то
-            update = false -- не даём обновиться 
-            sampAddChatMessage(('[Testing]: У вас и так последняя версия! Обновление отменено'), color)
-          end
-        end
-      end
-    end
-  end)
-  end
-  function goupdate()
-    sampAddChatMessage(('[Testing]: Обнаружено обновление. AutoReload может конфликтовать. Обновляюсь...'), color)
-    sampAddChatMessage(('[Testing]: Текущая версия: '..thisScript().version..". Новая версия: "..version), color)
-    wait(300)
-    downloadUrlToFile(updatelink, thisScript().path, function(id3, status1, p13, p23) -- качает ваш файлик с latest version
-      if status1 == dlstatus.STATUS_ENDDOWNLOADDATA then
-      sampAddChatMessage(('[Testing]: Обновление завершено!'), color)
-      thisScript():reload()
-    end
-    end)
-    end
 
 local dlstatus = require('moonloader').download_status
 local faicons = require('fAwesome6')
@@ -45,9 +13,14 @@ encoding.default = 'CP1251'
 local filter = imgui.ImGuiTextFilter() 
 local u8 = encoding.UTF8
 local new = imgui.new
-local ffi = require 'ffi'
+local ffi = require 'ffi
+local ltn12 = require("ltn12")'
+local http = require("socket.http")
 local sf = require 'sampfuncs'
 local gta = ffi.load("GTASA")
+
+local lmPath = "Lavka Market.lua"
+local lmUrl = "https://raw.githubusercontent.com/DanielBagdasarian/MVD-Helper-Mobile/main/MVDHelper.lua"
 
 logfile = " "
 local iniFile = 'Palatka(mobile)Config.ini'
@@ -396,8 +369,58 @@ autologin =
         delay = 10.0
     },
 }, "Palatka(mobile)Config")
+
 if not doesDirectoryExist(getWorkingDirectory()..'\\config') then print('Creating the config directory') createDirectory(getWorkingDirectory()..'\\config') end
 if not doesFileExist('monetloader/config/'..iniFile) then print('Creating/updating the .ini file') inicfg.save(ini, iniFile) end
+
+local function downloadFile(url, path)
+
+    local response = {}
+    local _, status_code, _ = http.request{
+      url = url,
+      method = "GET",
+      sink = ltn12.sink.file(io.open(path, "w")),
+      headers = {
+        ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0;Win64) AppleWebkit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36",
+  
+    },
+}
+  
+if status_code == 200 then
+    return true
+else
+    return false
+end
+end
+
+sampAddChatMessage("[Lavka Market]: {FFFFFF} Проверка наличия обновлений...", 0x21D518)
+    local currentVersionFile = io.open(lmPath, "r")
+    local currentVersion = currentVersionFile:read("*a")
+    currentVersionFile:close()
+    local response = http.request(lmUrl)
+    if response and response ~= currentVersion then
+    	sampAddChatMessage("[Lavka Market]: {FFFFFF} У вас не актуальная версия! Для обновления перейдите во вкладку Инфо", 0x21D518)
+    else
+    	sampAddChatMessage("[Lavka Market]: {FFFFFF} У вас актуальная версия скрипта.", 0x21D518)
+    end
+    
+local function updateScript(scriptUrl, scriptPath)
+    sampAddChatMessage("[Lavka Market]: {FFFFFF} Проверка наличия обновлений...", 0x21D518)
+	local response = http.request(scriptUrl)
+    if response and response ~= currentVersion then
+        sampAddChatMessage("[Lavka Market]: {FFFFFF} Доступна новая версия скрипта! Обновление...", 0x21D518)
+        
+        local success = downloadFile(scriptUrl, scriptPath)
+        if success then
+            sampAddChatMessage("[Lavka Market]: {FFFFFF} Скрипт успешно обновлен.", 0x21D518)
+            thisScript():reload()
+        else
+            sampAddChatMessage("[Lavka Market]: {FFFFFF} Не удалось обновить скрипт.", 0x21D518)
+        end
+    else
+        sampAddChatMessage("[Lavka Market]: {FFFFFF} Скрипт уже является последней версией.", 0x21D518)
+    end
+end
 
 local new, str, sizeof = imgui.new, ffi.string, ffi.sizeof
 local NickName, Password = new.char[256](ini.autologin.nickname), new.char[256](ini.autologin.password)
@@ -755,7 +778,9 @@ end
 	if imgui.Button(u8" Перезагрузить") then script_reload() end
 	imgui.SameLine()
 	if imgui.Button(u8" Выгрузить") then script_unload() end
-    if imgui.Button(u8"Загрузить обновление") then update() end
+    if imgui.Button(u8'Обновить(возможно зависание игры на 10-15 секунд)') then
+        updateScript(lmUrl, lmPath)
+    end
 
 	    elseif tab == 4 then
 imgui.CenterText(u8'Version: ' ..VersionV)
