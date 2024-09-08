@@ -34,7 +34,8 @@ function update()
     end
     end)
     end
-  
+
+local dlstatus = require('moonloader').download_status
 local faicons = require('fAwesome6')
 local sampev = require("samp.events")
 local imgui = require ('mimgui')
